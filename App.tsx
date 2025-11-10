@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-import { loginStudent, fetchMenu, placeOrder, loginAdmin, fetchOrdersForCanteen, updateStock, getStudentOrderHistory, fetchTotalSalesByDate } from './services/canteenService'; 
+// The corrected code
+// Change this line at the top of App.tsx
+import { loginStudent, fetchMenu, placeOrder, loginAdmin, fetchOrdersForCanteen, updateStock, getStudentOrderHistory, fetchTotalSalesByDate, fetchOrdersByStudentName, addMenuItem, deleteMenuItem, registerStudent } from './services/canteenService';
+
+
+ 
 import { User, Shield, Loader2, ArrowLeft, MapPin, ShoppingCart, X, Trash2, Plus, Minus, Settings, RefreshCw, History, DollarSign, Calendar } from 'lucide-react';
 // --- NEW IMAGE IMPORTS ---
 import NewBackgroundImage from './assets/images/DSC_9233.jpg';
 import SouthCanteenImage from './assets/images/SouthCanteen.jpg';
 import HornbillCafeImage from './assets/images/Hornbill.jpg';
+
+
 
 // --- TYPE DEFINITIONS (No Changes) ---
 export type Student = { student_id: number; name: string; };
@@ -17,7 +24,8 @@ export type Order = { order_id: number; order_date: string; total_amount: number
 
 export type OrderHistoryItem = { order_id: number; menu_item: string; amount: number; form_of_payment: string; paid_by: string; };
 // Add a new view for the order history page
-export type View = 'loginSelector' | 'studentLogin' | 'adminLogin' | 'canteenSelector' | 'menu' | 'orderSuccess' | 'adminDashboard' | 'orderHistory';
+export type View = 'loginSelector' | 'studentLogin' | 'studentRegister' | 'adminLogin' | 'canteenSelector' | 'menu' | 'orderSuccess' | 'adminDashboard' | 'orderHistory';
+
 // --- Reusable UI Components (No Changes) ---
 const Spinner = () => <Loader2 className="animate-spin h-6 w-6 text-white" />;
 const PageSpinner = () => <div className="flex justify-center mt-20"><Loader2 className="animate-spin h-10 w-10 text-orange-500" /></div>;
@@ -82,31 +90,232 @@ const LoginSelector = ({ onSelect }) => (
         </div>
     </div>
 );
-const StudentLoginPage = ({ onLogin, onBack }) => {
+interface StudentLoginPageProps {
+  onLogin: (studentId: string, password: string) => Promise<void>;
+  onBack: () => void;
+  onRegisterClick: () => void;
+}
+
+const StudentLoginPage: React.FC<StudentLoginPageProps> = ({ onLogin, onBack, onRegisterClick }) => {
     const [studentId, setStudentId] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); setError(null); setLoading(true);
-        try { await onLogin(studentId, password); } catch (err) { setError((err as Error).message); } finally { setLoading(false); }
+        e.preventDefault(); 
+        setError(null); 
+        setLoading(true);
+        try { 
+            await onLogin(studentId, password); 
+        } catch (err) { 
+            setError((err as Error).message); 
+        } finally { 
+            setLoading(false); 
+        }
     };
+    
     return (
         <div className="relative min-h-screen flex items-center justify-center p-4 font-sans">
             <Background />
             <div className="relative z-10 p-10 bg-white rounded-2xl shadow-2xl w-full max-w-md">
-                <button onClick={onBack} className="absolute top-4 left-4 text-sm text-gray-600 hover:text-black">&larr; Back</button>
+                <button onClick={onBack} className="absolute top-4 left-4 text-sm text-gray-600 hover:text-black">
+                    &larr; Back
+                </button>
                 <h2 className="text-3xl font-bold mb-8 text-center text-gray-800">Student Login</h2>
                 <form onSubmit={handleSubmit}>
-                    <div className="mb-5"><label className="block text-gray-700">Student ID</label><input type="text" value={studentId} onChange={(e) => setStudentId(e.target.value)} className="w-full input" placeholder="e.g., 1" required /></div>
-                    <div className="mb-8"><label className="block text-gray-700">Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full input" placeholder="••••••••" required /></div>
+                    <div className="mb-5">
+                        <label className="block text-gray-700">Student ID</label>
+                        <input 
+                            type="text" 
+                            value={studentId} 
+                            onChange={(e) => setStudentId(e.target.value)} 
+                            className="w-full input" 
+                            placeholder="e.g., 1" 
+                            required 
+                        />
+                    </div>
+                    <div className="mb-8">
+                        <label className="block text-gray-700">Password</label>
+                        <input 
+                            type="password" 
+                            value={password} 
+                            onChange={(e) => setPassword(e.target.value)} 
+                            className="w-full input" 
+                            placeholder="••••••••" 
+                            required 
+                        />
+                    </div>
                     {error && <p className="text-red-500 text-center mb-4">{error}</p>}
-                    <button type="submit" disabled={loading} className="w-full btn-primary">{loading ? <Spinner /> : 'Login'}</button>
+                    
+                    <button 
+                        type="submit" 
+                        disabled={loading} 
+                        className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {loading ? <Spinner /> : 'Login'}
+                    </button>
+                    
+                    <button
+                        type="button"
+                        onClick={onRegisterClick}
+                        className="w-full text-orange-500 hover:underline text-sm text-center mt-4"
+                    >
+                        Don't have an account? Register here
+                    </button>
                 </form>
             </div>
         </div>
     );
 };
+
+
+interface StudentRegistrationPageProps {
+  registrationData: {
+    student_id: string;
+    name: string;
+    department: string;
+    phone: string;
+    dob: string;
+    age: string;
+    password: string;
+  };
+  setRegistrationData: React.Dispatch<React.SetStateAction<{
+    student_id: string;
+    name: string;
+    department: string;
+    phone: string;
+    dob: string;
+    age: string;
+    password: string;
+  }>>;
+  onSubmit: (e: React.FormEvent) => Promise<void>;
+  loading: boolean;
+  error: string;
+  onBack: () => void;
+}
+
+const StudentRegistrationPage: React.FC<StudentRegistrationPageProps> = ({
+  registrationData,
+  setRegistrationData,
+  onSubmit,
+  loading,
+  error,
+  onBack
+}) => {
+  return (
+    <div className="relative min-h-screen flex items-center justify-center p-4 font-sans">
+      <Background />
+      <div className="relative z-10 p-10 bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <button 
+          onClick={onBack}
+          className="absolute top-4 left-4 text-sm text-gray-600 hover:text-black"
+        >
+          ← Back
+        </button>
+        
+        <h2 className="text-3xl font-bold mb-8 text-center text-gray-800">Create Student Account</h2>
+        
+        <form onSubmit={onSubmit}>
+          <div className="mb-5">
+            <label className="block text-gray-700">Student ID</label>
+            <input
+              type="number"
+              required
+              value={registrationData.student_id}
+              onChange={(e) => setRegistrationData({...registrationData, student_id: e.target.value})}
+              className="w-full input"
+              placeholder="e.g., 12345"
+            />
+          </div>
+          
+          <div className="mb-5">
+            <label className="block text-gray-700">Full Name</label>
+            <input
+              type="text"
+              required
+              maxLength={50}
+              value={registrationData.name}
+              onChange={(e) => setRegistrationData({...registrationData, name: e.target.value})}
+              className="w-full input"
+              placeholder="Your full name"
+            />
+          </div>
+          
+          <div className="mb-5">
+            <label className="block text-gray-700">Department (Optional)</label>
+            <input
+              type="text"
+              maxLength={50}
+              value={registrationData.department}
+              onChange={(e) => setRegistrationData({...registrationData, department: e.target.value})}
+              className="w-full input"
+              placeholder="e.g., Computer Science"
+            />
+          </div>
+          
+          <div className="mb-5">
+            <label className="block text-gray-700">Phone (Optional)</label>
+            <input
+              type="tel"
+              maxLength={15}
+              value={registrationData.phone}
+              onChange={(e) => setRegistrationData({...registrationData, phone: e.target.value})}
+              className="w-full input"
+              placeholder="+91 98765 43210"
+            />
+          </div>
+          
+          <div className="mb-5">
+            <label className="block text-gray-700">Date of Birth (Optional)</label>
+            <input
+              type="date"
+              value={registrationData.dob}
+              onChange={(e) => setRegistrationData({...registrationData, dob: e.target.value})}
+              className="w-full input"
+            />
+          </div>
+          
+          <div className="mb-5">
+            <label className="block text-gray-700">Age (Optional)</label>
+            <input
+              type="number"
+              value={registrationData.age}
+              onChange={(e) => setRegistrationData({...registrationData, age: e.target.value})}
+              className="w-full input"
+              placeholder="e.g., 20"
+            />
+          </div>
+          
+          <div className="mb-8">
+            <label className="block text-gray-700">Password</label>
+            <input
+              type="password"
+              required
+              maxLength={255}
+              value={registrationData.password}
+              onChange={(e) => setRegistrationData({...registrationData, password: e.target.value})}
+              className="w-full input"
+              placeholder="•••••••"
+            />
+          </div>
+          
+          {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+          
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? <Spinner /> : 'Create Account'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+
 const AdminLoginPage = ({ onLogin, onBack }) => {
     const [adminId, setAdminId] = useState('');
     const [canteenName, setCanteenName] = useState('');
@@ -128,7 +337,18 @@ const AdminLoginPage = ({ onLogin, onBack }) => {
                     <div className="mb-5"><label className="block text-gray-700">Canteen Name</label><input type="text" value={canteenName} onChange={(e) => setCanteenName(e.target.value)} className="w-full input" placeholder="e.g., Main Campus Canteen" required /></div>
                     <div className="mb-8"><label className="block text-gray-700">Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full input" placeholder="••••••••" required /></div>
                     {error && <p className="text-red-500 text-center mb-4">{error}</p>}
-                    <button type="submit" disabled={loading} className="w-full btn-primary">{loading ? <Spinner /> : 'Login'}</button>
+                    <button type="submit" 
+                        disabled={loading} 
+                        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:from-blue-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {loading ? (
+                            <Spinner />
+                        ) : (
+                            <>
+                                <Shield className="h-5 w-5" />
+                                <span>Login as Admin</span>
+                            </>
+                        )}</button>
                 </form>
             </div>
         </div>
@@ -240,7 +460,8 @@ const MenuPage = ({ canteen, onBack, onAddToCart }) => {
                             <p className={`text-sm mb-4 ${item.stock < 10 && item.stock > 0 ? 'text-red-500' : 'text-gray-500'}`}>{item.stock > 0 ? `${item.stock} left` : 'Out of stock'}</p>
                             <div className="mt-auto flex justify-between items-center">
                                 <span className="text-2xl font-bold text-green-600">₹{parseFloat(item.price.toString()).toFixed(2)}</span>
-                                <button onClick={() => onAddToCart(item)} disabled={item.stock === 0} className="btn-primary">Add</button>
+                                <button  
+                                        onClick={() => onAddToCart(item)} disabled={item.stock === 0} className="btn-primary">Add</button>
                             </div>
                         </div>
                     </div>
@@ -280,6 +501,14 @@ const AdminDashboard = ({ admin }) => {
     const [orderFetchDate, setOrderFetchDate] = useState(new Date().toISOString().split('T')[0]);
     const [datedOrders, setDatedOrders] = useState<Order[]>([]);
     const [datedOrdersLoading, setDatedOrdersLoading] = useState(false);
+    const [searchName, setSearchName] = useState('');
+    const [searchedOrders, setSearchedOrders] = useState<OrderHistoryItem[]>([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+    // --- NEW STATE for the "Add Item" form ---
+    const [newItemName, setNewItemName] = useState('');
+    const [newItemPrice, setNewItemPrice] = useState('');
+    const [newItemStock, setNewItemStock] = useState('10');
+
 
     const fetchData = async () => {
         if (!admin) return;
@@ -302,6 +531,71 @@ const AdminDashboard = ({ admin }) => {
     useEffect(() => {
         fetchData();
     }, [admin]);
+    
+
+    const handleAddItem = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newItemName || !newItemPrice || !newItemStock) {
+            alert('Please fill out all fields for the new item.');
+            return;
+        }
+        const newItemData = {
+            name: newItemName,
+            price: parseFloat(newItemPrice),
+            stock: parseInt(newItemStock, 10),
+            canteen_id: admin.canteen_id, // Assign to the current admin's canteen
+            image_url: 'https://i.imgur.com/Kip3v1s.jpeg', // Default image
+        };
+        try {
+            const result = await addMenuItem(newItemData);
+            if (result.success) {
+                // Add the new item to the local state to instantly update the UI
+                setMenuItems(prev => [...prev, result.newItem]);
+                // Clear the form
+                setNewItemName('');
+                setNewItemPrice('');
+                setNewItemStock('10');
+            }
+        } catch (err) {
+            alert('Failed to add item.');
+            }
+    };
+    const handleDeleteItem = async (itemId: number) => {
+        if (!window.confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+            return;
+        }
+        try {
+            const result = await deleteMenuItem(itemId);
+            if (result.success) {
+                // Remove the item from the local state to instantly update the UI
+                setMenuItems(prev => prev.filter(item => item.menu_item_id !== itemId));
+            }
+        } catch (err) {
+            alert('Failed to delete item.');
+        }
+    };
+
+    const handleSearchStudentOrders = async () => {
+        if (!searchName.trim()) {
+            alert('Please enter a name to search.');
+            return;
+        }
+        setSearchLoading(true);
+        try {
+            const data = await fetchOrdersByStudentName(searchName);
+            if (data.success) {
+                setSearchedOrders(data.orders);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Failed to find orders for that student.');
+        } finally {
+            setSearchLoading(false);
+        }
+    };
+
+    if (loading) return <PageSpinner />;
+    if (error) return <p className="text-red-500 text-center">{error}</p>;
 
     const handleFetchSales = async () => {
         setSalesLoading(true);
@@ -347,6 +641,31 @@ const AdminDashboard = ({ admin }) => {
                 <button onClick={fetchData} className="p-2 rounded-full hover:bg-gray-200 transition-colors"><RefreshCw size={20} /></button>
             </div>
             <p className="text-lg text-gray-500 mt-2">Welcome, {admin.name}. You are managing Canteen ID: {admin.canteen_id}.</p>
+            
+            <div className="mt-8 bg-white p-6 rounded-2xl shadow-lg">
+                <h3 className="font-bold text-2xl mb-4">Search Student Orders</h3>
+                <div className="flex items-center gap-4">
+                    <input 
+                        type="text" 
+                        value={searchName} 
+                        onChange={(e) => setSearchName(e.target.value)} 
+                        className="input"
+                        placeholder="Enter student name..."
+                    />
+                    <button onClick={handleSearchStudentOrders} disabled={searchLoading} className="btn-primary flex items-center gap-2">
+                        {searchLoading ? <Spinner/> : <>Search</>}
+                    </button>
+                </div>
+                <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
+                    {searchedOrders.length > 0 ? searchedOrders.map((order, index) => (
+                        <div key={`${order.order_id}-${index}`} className="p-2 border-b text-sm">
+                            <span>
+                                Order #{order.order_id} by <b>{order.student_name}</b> for item "{order.menu_item}"
+                            </span>
+                        </div>
+                    )) : <p className="text-gray-500 mt-4">Enter a name and click search.</p>}
+                </div>
+            </div>
 
             <div className="mt-8 bg-white p-6 rounded-2xl shadow-lg">
                 <h3 className="font-bold text-2xl mb-4">Daily Sales Report</h3>
@@ -387,6 +706,23 @@ const AdminDashboard = ({ admin }) => {
                 {/* Stock Management Section */}
                 <div className="bg-white p-6 rounded-2xl shadow-lg">
                     <h3 className="font-bold text-2xl mb-4">Stock Management</h3>
+                    <form onSubmit={handleAddItem} className="mb-6 p-4 border rounded-lg bg-gray-50 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-medium">Item Name</label>
+                        <input type="text" value={newItemName} onChange={e => setNewItemName(e.target.value)} className="input" placeholder="e.g., Samosa" required />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium">Price (₹)</label>
+                        <input type="number" value={newItemPrice} onChange={e => setNewItemPrice(e.target.value)} className="input" placeholder="15.00" required />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium">Stock</label>
+                        <input type="number" value={newItemStock} onChange={e => setNewItemStock(e.target.value)} className="input" placeholder="10" required />
+                    </div>
+                    <button type="submit" className="btn-primary w-full md:w-auto">Add Item</button>
+                    
+
+                </form>
                     <div className="space-y-2 max-h-96 overflow-y-auto">
                         {menuItems.map(item => (
                             <div key={item.menu_item_id} className="flex items-center justify-between p-2 border-b">
@@ -395,6 +731,11 @@ const AdminDashboard = ({ admin }) => {
                                     <button onClick={() => handleStockChange(item.menu_item_id, item.stock - 1)} className="p-1 border rounded-full">-</button>
                                     <span className="font-bold w-8 text-center">{item.stock}</span>
                                     <button onClick={() => handleStockChange(item.menu_item_id, item.stock + 1)} className="p-1 border rounded-full">+</button>
+                                    {/* --- THIS IS THE MISSING DELETE BUTTON --- */}
+                                    <button onClick={() => handleDeleteItem(item.menu_item_id)} className="text-red-500 hover:text-red-700" title="Delete Item">
+                                    <Trash2 size={18} />
+                                    </button>
+
                                 </div>
                             </div>
                         ))}
@@ -413,6 +754,18 @@ const App = () => {
     const [selectedCanteen, setSelectedCanteen] = useState<Canteen | null>(null);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [isCartOpen, setIsCartOpen] = useState(false);
+    const [registrationData, setRegistrationData] = useState({
+        student_id: '',
+        name: '',
+        department: '',
+        phone: '',
+        dob: '',
+        age: '',
+        password: ''
+    });
+    
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
     const handleRoleSelect = (role: 'student' | 'admin') => {
         if (role === 'student') setView('studentLogin');
@@ -424,6 +777,44 @@ const App = () => {
         setUser(response.student);
         setView('canteenSelector');
     };
+    const handleStudentRegistration = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+  setError('');
+  
+  try {
+    await registerStudent({
+      student_id: parseInt(registrationData.student_id),
+      name: registrationData.name,
+      department: registrationData.department || undefined,
+      phone: registrationData.phone || undefined,
+      dob: registrationData.dob || undefined,
+      age: registrationData.age ? parseInt(registrationData.age) : undefined,
+      password: registrationData.password
+    });
+    
+    // Auto-login after successful registration
+    const loginResult = await loginStudent(registrationData.student_id, registrationData.password);
+            setUser(loginResult.student);
+            setView('canteenSelector');
+            
+            // ✅ Reset form
+            setRegistrationData({
+                student_id: '',
+                name: '',
+                department: '',
+                phone: '',
+                dob: '',
+                age: '',
+                password: ''
+            });
+        } catch (err: any) {
+            setError(err.message || 'Registration failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
 
     const handleAdminLogin = async (adminId: string, canteenName: string, password: string) => {
         const response = await loginAdmin(adminId, canteenName, password);
@@ -469,18 +860,32 @@ const App = () => {
     const renderContent = () => {
         switch (view) {
             case 'loginSelector': return <LoginSelector onSelect={handleRoleSelect} />;
-            case 'studentLogin': return <StudentLoginPage onLogin={handleStudentLogin} onBack={() => setView('loginSelector')} />;
+           case 'studentLogin': 
+                return <StudentLoginPage 
+                    onLogin={handleStudentLogin} 
+                    onBack={() => setView('loginSelector')}
+                    onRegisterClick={() => setView('studentRegister')} 
+                />;
             case 'adminLogin': return <AdminLoginPage onLogin={handleAdminLogin} onBack={() => setView('loginSelector')} />;
             case 'canteenSelector': return <CanteenSelectionPage onSelectCanteen={handleSelectCanteen} />;
             case 'menu': return <MenuPage canteen={selectedCanteen} onBack={() => setView('canteenSelector')} onAddToCart={handleAddToCart} />;
             case 'orderSuccess': return <OrderSuccessPage onBackToMenu={() => setView('menu')} />;
             case 'adminDashboard': return <AdminDashboard admin={admin} />;
             case 'orderHistory': return <OrderHistoryPage student={user} />;
+            case 'studentRegister': 
+                   return <StudentRegistrationPage 
+                   registrationData={registrationData}
+                   setRegistrationData={setRegistrationData}
+                   onSubmit={handleStudentRegistration}
+                   loading={loading}
+                   error={error}
+                   onBack={() => setView('studentLogin')}
+    />;
             default: return <div>Not Found</div>;
         }
     };
 
-    const showHeader = view !== 'loginSelector' && view !== 'studentLogin' && view !== 'adminLogin';
+    const showHeader = view !== 'loginSelector' && view !== 'studentLogin' && view !== 'adminLogin' && view !== 'studentRegister'; 
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans">
@@ -494,3 +899,4 @@ const App = () => {
 };
 
 export default App;
+

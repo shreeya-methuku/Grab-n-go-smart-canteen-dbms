@@ -142,4 +142,76 @@ export const fetchTotalSalesByDate = async (date) => {
     }
 };
 
+// Add this function to services/canteenService.ts
 
+export const fetchOrdersByStudentName = async (name) => {
+    try {
+        const response = await fetch(`http://localhost:3001/api/orders/student-name/${name}`);
+        if (!response.ok) throw new Error('Server error');
+        return await response.json();
+    } catch (error) {
+        console.error('Failed to fetch orders by student name:', error);
+        throw error;
+    }
+};
+// Add these two functions to services/canteenService.ts
+
+export const addMenuItem = async (menuItemData) => {
+    try {
+        const response = await fetch('http://localhost:3001/api/menu-item', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(menuItemData),
+        });
+        if (!response.ok) throw new Error('Server error when adding item');
+        return await response.json();
+    } catch (error) {
+        console.error('Failed to add menu item:', error);
+        throw error;
+    }
+};
+
+export const deleteMenuItem = async (itemId) => {
+    try {
+        const response = await fetch(`http://localhost:3001/api/menu-item/${itemId}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) throw new Error('Server error when deleting item');
+        return await response.json();
+    } catch (error) {
+        console.error('Failed to delete menu item:', error);
+        throw error;
+    }
+};
+
+
+// Register a new student (UPDATED FOR YOUR SCHEMA)
+export const registerStudent = async (studentData: {
+  student_id: number;  // Changed to number since your schema uses int
+  name: string;
+  department?: string;
+  phone?: string;
+  dob?: string;  // Format: 'YYYY-MM-DD'
+  age?: number;
+  password: string;
+}) => {
+  try {
+    const API_BASE_URL = 'http://localhost:3001/api';
+    const response = await fetch(`${API_BASE_URL}/register/student`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(studentData),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Registration failed');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Registration failed:', error);
+    throw error;
+  }
+};

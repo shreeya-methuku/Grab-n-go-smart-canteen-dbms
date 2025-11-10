@@ -242,6 +242,101 @@ app.get('/api/sales/:date', async (req, res) => {
     }
 });
 
+// Add this new endpoint to backend/server.js
+
+// GET all orders for a student by searching their name
+app.get('/api/orders/student-name/:studentName', async (req, res) => {
+    const { studentName } = req.params;
+    try {
+        const [orders] = await db.query('CALL get_student_orders_by_name(?)', [studentName]);
+        res.json({ success: true, orders: orders[0] });
+    } catch (error) {
+        console.error("Failed to fetch orders by student name:", error);
+        res.status(500).json({ success: false, message: 'Failed to fetch orders by name.' });
+    }
+});
+
+// Add these two new endpoints to your backend/server.js file
+
+// POST /api/menu-item - Add a new menu item
+app.post('/api/menu-item', async (req, res) => {
+    // Note: Assumes the admin's canteen_id is sent from the frontend
+    const { name, price, stock, image_url, canteen_id } = req.body;
+    try {
+        const [result] = await db.query(
+            'INSERT INTO menu_item (name, price, stock, image_url, canteen_id) VALUES (?, ?, ?, ?, ?)',
+            [name, price, stock, image_url, canteen_id]
+        );
+        // Fetch and return the newly created item to update the frontend state
+        const [newItem] = await db.query('SELECT * FROM menu_item WHERE menu_item_id = ?', [result.insertId]);
+        res.json({ success: true, newItem: newItem[0] });
+    } catch (error) {
+        console.error('Failed to add menu item:', error);
+        res.status(500).json({ success: false, message: 'Failed to add menu item' });
+    }
+});
+
+// DELETE /api/menu-item/:itemId - Delete a menu item
+app.delete('/api/menu-item/:itemId', async (req, res) => {
+    const { itemId } = req.params;
+    try {
+        // Important: Delete from the junction table first to avoid foreign key errors
+        await db.query('DELETE FROM order_menu_item WHERE menu_item_id = ?', [itemId]);
+        // Now delete the item from the main menu table
+        await db.query('DELETE FROM menu_item WHERE menu_item_id = ?', [itemId]);
+        res.json({ success: true, message: 'Menu item deleted successfully.' });
+    } catch (error) {
+        console.error('Failed to delete menu item:', error);
+        res.status(500).json({ success: false, message: 'Failed to delete menu item' });
+    }
+});
+
+// POST /api/register/student - Register a new student (UPDATED FOR YOUR SCHEMA)
+app.post('/api/register/student', async (req, res) => {
+  const { student_id, name, department, phone, dob, age, password } = req.body;
+  
+  try {
+    // Validate required fields
+    if (!student_id || !name || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Student ID, name, and password are required.' 
+      });
+    }
+    
+    // Check if student ID already exists
+    const [existingStudent] = await db.query(
+      'SELECT student_id FROM student WHERE student_id = ?',
+      [student_id]
+    );
+    
+    if (existingStudent.length > 0) {
+      return res.status(409).json({ 
+        success: false, 
+        message: 'Student ID already registered. Please use a different ID or login.' 
+      });
+    }
+    
+    // Insert new student (matching your actual columns)
+    const [result] = await db.query(
+      'INSERT INTO student (student_id, name, department, phone, dob, age, password) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [student_id, name, department || null, phone || null, dob || null, age || null, password]
+    );
+    
+    res.json({ 
+      success: true, 
+      message: 'Student registered successfully!',
+      student: { student_id, name }
+    });
+    
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Database error during registration.' 
+    });
+  }
+});
 
 
 
